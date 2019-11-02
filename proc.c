@@ -112,11 +112,12 @@ found:
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
 
-  // Initialising the variables for waitx
+  // Initialising the variables
   p->ctime = ticks; 
   p->etime = 0;
   p->rtime = 0;
-  p->iotime=0;
+  p->iotime = 0;
+  p->num_run = 0;
 
   return p;
 }
@@ -396,6 +397,7 @@ scheduler(void)
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
+      p->num_run++;
 
       swtch(&(c->scheduler), p->context);
       switchkvm();
@@ -585,4 +587,25 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+int
+getpinfo(struct proc_stat *p_proc, int pid){  //0 if successful, 1 if otherwise
+  
+  // cprintf("PID=%d\n",pid);
+  // for(int i=0; i< NPROC; i++){
+  //   struct proc p=ptable.proc[i];
+  //   if(p.pid==pid){
+  //     // p_proc->pid=p.pid;
+  //     p_proc->runtime=3;   //not working
+  //     p_proc->num_run=p.num_run;  //not working
+  //     cprintf("%d %d\n",p.rtime,p.num_run);
+  //     cprintf("%d %d\n",p_proc->runtime,p_proc->num_run);
+  //     return 0;
+  //   }
+  // }
+  // return -1;//means no such pid
+
+  cprintf("%d %d\n",p_proc->runtime,p_proc->num_run);
+  return 0;
 }

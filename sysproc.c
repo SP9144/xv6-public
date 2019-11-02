@@ -104,3 +104,17 @@ sys_waitx(void)
 
   return waitx(wtime,rtime);
 }
+
+int
+sys_getpinfo(void)
+{
+  struct proc_stat *p;
+  int pid;
+
+  if(argptr(0,(char**)&p,sizeof(struct proc_stat)) < 0)
+    return -1;
+  if(argint(1, &pid) < 0)
+    return -1;
+
+  return getpinfo(p,pid);
+}
