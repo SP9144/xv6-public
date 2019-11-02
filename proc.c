@@ -592,20 +592,16 @@ procdump(void)
 int
 getpinfo(struct proc_stat *p_proc, int pid){  //0 if successful, 1 if otherwise
   
-  // cprintf("PID=%d\n",pid);
-  // for(int i=0; i< NPROC; i++){
-  //   struct proc p=ptable.proc[i];
-  //   if(p.pid==pid){
-  //     // p_proc->pid=p.pid;
-  //     p_proc->runtime=3;   //not working
-  //     p_proc->num_run=p.num_run;  //not working
-  //     cprintf("%d %d\n",p.rtime,p.num_run);
-  //     cprintf("%d %d\n",p_proc->runtime,p_proc->num_run);
-  //     return 0;
-  //   }
-  // }
-  // return -1;//means no such pid
-
-  cprintf("%d %d\n",p_proc->runtime,p_proc->num_run);
-  return 0;
+  for(int i=0; i< NPROC; i++){
+    struct proc p=ptable.proc[i];
+    if(p.pid==pid){
+      p_proc->pid=p.pid;
+      p_proc->runtime=p.rtime;   
+      p_proc->num_run=p.num_run;  
+      // cprintf("%d %d\n",p.rtime,p.num_run);
+      // cprintf("%d %d\n",p_proc->runtime,p_proc->num_run);
+      return 0;
+    }
+  }
+  return -1;//means no such pid
 }
