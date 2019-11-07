@@ -183,7 +183,7 @@ userinit(void)
   acquire(&ptable.lock);
 
   p->state = RUNNABLE;
-
+  p->intime=ticks;
   release(&ptable.lock);
 }
 
@@ -249,7 +249,7 @@ fork(void)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
-
+  np->intime=ticks;
   release(&ptable.lock);
 
   return pid;
@@ -621,21 +621,7 @@ scheduler(void)
       // before jumping back to us.
       if(ptorun!=0){ //We just chose process in queue i at position j
 
-        for(int lol=0;lol<5;lol++){
-          for(int it=0;it<mlfq[lol].num;it++) {
-            if(mlfq[lol].proc[it]->state== RUNNING)
-            cprintf("%d RUNNING  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
-            else if(mlfq[lol].proc[it]->state== RUNNABLE)
-            cprintf("%d RUNNABLE  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
-            else if(mlfq[lol].proc[it]->state== SLEEPING)
-            cprintf("%d SLEEPING  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
-            else if(mlfq[lol].proc[it]->state== UNUSED)
-            cprintf("%d UNUSED  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
-            else
-            cprintf("%d OTHER  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
-            if(it==mlfq[lol].num-1) cprintf("...%d\n",lol);
-            }
-        }
+        // ps();
 
         c->proc = ptorun;
         switchuvm(ptorun);
@@ -649,8 +635,8 @@ scheduler(void)
         // It should have changed its p->state before coming back.
         c->proc = 0;
         
-        // cprintf("%d in %d runtime %d ticks %d\n",ptorun->pid,ptorun->current_queue,ptorun->rtime,ptorun->ticksnow[ptorun->current_queue]);
-        cprintf("selected %d from %d at %d\n",ptorun->pid,i,j);
+        // cprintf("%d in %d ticks %d\n",ptorun->pid,ptorun->current_queue,ptorun->ticksnow[ptorun->current_queue]);
+        // cprintf("selected %d from %d at %d\n",ptorun->pid,i,j);
         
         //first do all the checking,putting into new/same queue if reqd
         if(ptorun!=0 ){//has not been killed
@@ -723,6 +709,7 @@ yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
   myproc()->state = RUNNABLE;
+  myproc()->intime=ticks;
   sched();
   release(&ptable.lock);
 }
@@ -796,8 +783,10 @@ wakeup1(void *chan)
   struct proc *p;
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan)
+    if(p->state == SLEEPING && p->chan == chan){
       p->state = RUNNABLE;
+      p->intime=ticks;
+    }
 }
 
 // Wake up all processes sleeping on chan.
@@ -822,8 +811,10 @@ kill(int pid)
     if(p->pid == pid){
       p->killed = 1;
       // Wake process from sleep if necessary.
-      if(p->state == SLEEPING)
+      if(p->state == SLEEPING){
         p->state = RUNNABLE;
+        p->intime=ticks;
+      }
       release(&ptable.lock);
       return 0;
     }
@@ -878,8 +869,8 @@ getpinfo(struct proc_stat *p_proc, int pid){  //0 if successful, 1 if otherwise
       p_proc->pid=p.pid;
       p_proc->runtime=p.rtime;   
       p_proc->num_run=p.num_run;  
-      // cprintf("%d %d\n",p.rtime,p.num_run);
-      // cprintf("%d %d\n",p_proc->runtime,p_proc->num_run);
+      p_proc->current_queue=p.current_queue;
+      for(int j=0;j<5;j++) p_proc->ticks[i]=p.ticks[i];
       return 0;
     }
   }
@@ -890,8 +881,8 @@ int
 setpriority(int pri, int pid)  //returns 0 if success;
 {
   if(pri<0 || pri>100){
-    cprintf("Invalid priority\n");
-    return -1;
+    // cprintf("Invalid priority\n");
+    return -2;
   }
 
   struct proc *p;
@@ -907,19 +898,26 @@ setpriority(int pri, int pid)  //returns 0 if success;
   }
 
   release(&ptable.lock);
-  cprintf("No such process\n");
+  // cprintf("No such process\n");
   return -1;// means process not found
 }
 
 void 
 ps(void){
 
-  struct proc *p=0;
-  
-      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-        if(p->state != RUNNABLE)
-          continue;
-        cprintf("pid=%d pri=%d\n",p->pid,p->priority);
-      }
-  return;
+  for(int lol=0;lol<5;lol++){
+    for(int it=0;it<mlfq[lol].num;it++) {
+      if(mlfq[lol].proc[it]->state== RUNNING)
+        cprintf("%d RUNNING  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
+      else if(mlfq[lol].proc[it]->state== RUNNABLE)
+        cprintf("%d RUNNABLE  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
+      else if(mlfq[lol].proc[it]->state== SLEEPING)
+        cprintf("%d SLEEPING  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
+      else if(mlfq[lol].proc[it]->state== UNUSED)
+        cprintf("%d UNUSED  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
+      else
+        cprintf("%d OTHER  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
+      if(it==mlfq[lol].num-1) cprintf("...%d\n",lol);
+    }
+  }
 }

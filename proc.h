@@ -53,12 +53,12 @@ struct proc {
   int ctime;                   //creation time
   int rtime;                   //run time
   int iotime;                  //time waiting for io
-  int num_run;
+  int num_run;                 
   int priority;
   int current_queue;
   int ticks[5];
-  int ticksnow[5];
-  int intime;
+  int ticksnow[5];             //
+  int intime;                  //
 };
 
 struct proc_stat{
