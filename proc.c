@@ -9,7 +9,7 @@
 // #define FCFS
 // #define DEFAULT
 // #define PRIORITY
-#define MLFQ
+// #define MLFQ
 
 struct {
   struct spinlock lock;
@@ -426,6 +426,7 @@ void
 scheduler(void)
 {
   #ifdef DEFAULT
+  cprintf("default");
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
@@ -459,6 +460,7 @@ scheduler(void)
   }
   #else
   #ifdef FCFS
+  cprintf("fcfs");
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
@@ -501,6 +503,7 @@ scheduler(void)
   }
   #else
   #ifdef PRIORITY
+  cprintf("priority");
   struct cpu *c = mycpu();
   c->proc = 0;
   struct proc *p;
@@ -545,6 +548,7 @@ scheduler(void)
   }
   #else
   #ifdef MLFQ
+  cprintf("mlfq");
     for(int i=0;i<5;i++){
       mlfq[i].rtime=1;
       for(int j=0;j<i;j++) mlfq[i].rtime*=2;
@@ -593,7 +597,7 @@ scheduler(void)
               mlfq[it].proc[mlfq[it].num]=0;
 
               ptorun=mlfq[newq].proc[mlfq[newq].num-1];
-              cprintf("%d shifted up to %d\n",ptorun->pid,ptorun->current_queue);
+              // cprintf("%d shifted up to %d\n",ptorun->pid,ptorun->current_queue);
             }
           }
         }
@@ -651,7 +655,7 @@ scheduler(void)
           mlfq[newq].proc[mlfq[newq].num]=ptorun;
           if(newq==i+1) {
             mlfq[newq].proc[mlfq[newq].num]->ticksnow[newq]=0;
-            cprintf("%d shifted down to %d\n",ptorun->pid,newq);
+            // cprintf("%d shifted down to %d\n",ptorun->pid,newq);
           }
           mlfq[newq].proc[mlfq[newq].num]->intime=ticks;    //since time since it was waiting should reset
           mlfq[newq].proc[mlfq[newq].num++]->current_queue=newq;
