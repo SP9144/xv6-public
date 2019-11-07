@@ -17,11 +17,9 @@ struct {
 } ptable;
 
 struct queue{
-  // struct spinlock lock;
   struct proc *proc[NPROC];
-  int rtime; //slice time
-  int wtime;
-  int minpri;
+  int rtime;   //slice time
+  int wtime;   //max wait time(for aging)
   int num;//size of queue, proc[num] is where new process wil go
 };
 
@@ -499,7 +497,7 @@ scheduler(void)
         c->proc = 0;
       }
       release(&ptable.lock);
-      ptorun=0; //????
+      ptorun=0; 
   }
   #else
   #ifdef PRIORITY
@@ -874,7 +872,7 @@ getpinfo(struct proc_stat *p_proc, int pid){  //0 if successful, 1 if otherwise
       p_proc->runtime=p.rtime;   
       p_proc->num_run=p.num_run;  
       p_proc->current_queue=p.current_queue;
-      for(int j=0;j<5;j++) p_proc->ticks[i]=p.ticks[i];
+      for(int j=0;j<5;j++) p_proc->ticks[j]=p.ticks[j];
       return 0;
     }
   }

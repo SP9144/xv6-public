@@ -1,0 +1,30 @@
+PERFORMANCE COMPARISON REPORT
+
+The four scheduling policies that have been implemented in this modified version of the xv6 operating system are 
+FCFS
+Multilevel-Feedback Queue
+Round Robin
+Priority Based Scheduling
+
+
+Comparing Performances:
+
+Choosing Processes for CPU attention : 
+FCFS: The process with the earliest ctime (creation time) is chosen and given CPU time. 
+Round Robin: a process with state RUNNABLE is chosen to execute. The process is preempted (yielded) after a particular number of clock ticks.
+Priority based scheduling: The process with the highest priority is selected for execution.
+MLFQ: The processes are chosen from the top most queue. Processes in lower queues are chosen only if the higher queues are empty.
+
+Context Switching:
+FCFS: There is no context switching involved during the total CPU burst time of the process and hence low overheads. 
+Round Robin: Context switching will arise since it is premptive and needs to keep going over the entire queue.
+Priority based scheduling: Context switching will arise since it is premptive and needs to keep finding the lowest priority process. If priority changes, rescheduling done.
+MLFQ: Context switching since the processes change their priority queue and also due to pushing and popping in the same queue.
+
+Waiting Time:
+FCFS: It has the highest waiting time since it is non premptive. Convoy effect might occur.
+Round Robin: Average waiting time is often long. However there is bounded waiting. In general, each process must wait no longer than (n − 1) × q time units until its next time quantum
+Priority based scheduling: Wait time can be adjusted by setting appropriate priority. Low priority will take much more wait time. As aging is not implemented, starvation may occur.
+MLFQ: Processes that use small CPU bursts will have waiting less time. Also aging will prevent starvation.
+
+A process in MLFQ can ensure shorter CPU bursts by increasing the number of i/o processes (for example printing garbage on the terminal). Thus it will stay in the higher priority queues.
