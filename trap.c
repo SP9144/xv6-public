@@ -54,8 +54,8 @@ trap(struct trapframe *tf)
       acquire(&tickslock);
       ticks++;
       wakeup(&ticks);
+      // ps();
       release(&tickslock);
-
       // Updating the status
        if(myproc()) {
         if(myproc()->state == RUNNING){

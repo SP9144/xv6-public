@@ -907,19 +907,26 @@ setpriority(int pri, int pid)  //returns 0 if success;
 void 
 ps(void){
 
-  for(int lol=0;lol<5;lol++){
-    for(int it=0;it<mlfq[lol].num;it++) {
-      if(mlfq[lol].proc[it]->state== RUNNING)
-        cprintf("%d RUNNING  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
-      else if(mlfq[lol].proc[it]->state== RUNNABLE)
-        cprintf("%d RUNNABLE  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
-      else if(mlfq[lol].proc[it]->state== SLEEPING)
-        cprintf("%d SLEEPING  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
-      else if(mlfq[lol].proc[it]->state== UNUSED)
-        cprintf("%d UNUSED  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
-      else
-        cprintf("%d OTHER  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
-      if(it==mlfq[lol].num-1) cprintf("...%d\n",lol);
+  // for(int lol=0;lol<5;lol++){
+  //   for(int it=0;it<mlfq[lol].num;it++) {
+  //     if(mlfq[lol].proc[it]->state== RUNNING)
+  //       cprintf("%d RUNNING  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
+  //     else if(mlfq[lol].proc[it]->state== RUNNABLE)
+  //       cprintf("%d RUNNABLE  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
+  //     else if(mlfq[lol].proc[it]->state== SLEEPING)
+  //       cprintf("%d SLEEPING  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
+  //     else if(mlfq[lol].proc[it]->state== UNUSED)
+  //       cprintf("%d UNUSED  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
+  //     else
+  //       cprintf("%d OTHER  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
+  //     if(it==mlfq[lol].num-1) cprintf("...%d\n",lol);
+  //   }
+  // }
+
+  struct proc *p;
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->state!=UNUSED && p->pid>3){
+        cprintf("%d %d %d\n",p->pid,p->current_queue,ticks);
+      }
     }
-  }
 }
