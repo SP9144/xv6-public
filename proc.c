@@ -6,12 +6,26 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
-#define FCFS
+// #define FCFS
 // #define DEFAULT
+// #define PRIORITY
+#define MLFQ
+
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
 } ptable;
+
+struct queue{
+  // struct spinlock lock;
+  struct proc *proc[NPROC];
+  int rtime; //slice time
+  int wtime;
+  int minpri;
+  int num;//size of queue, proc[num] is where new process wil go
+};
+
+struct queue mlfq[5];
 
 static struct proc *initproc;
 
@@ -119,6 +133,18 @@ found:
   p->rtime = 0;
   p->iotime = 0;
   p->num_run = 0;
+  p->priority = 60;
+  for(int it=0;it<4;it++) p->ticks[it]=0;
+
+  #ifdef MLFQ
+
+    // In mlfq it starts in queue 0
+    acquire(&ptable.lock);
+    mlfq[0].proc[mlfq[0].num]=p;
+    mlfq[0].num++;  
+    p->current_queue = 0;
+    release(&ptable.lock);
+  #endif
 
   return p;
 }
@@ -302,6 +328,27 @@ wait(void)
         kfree(p->kstack);
         p->kstack = 0;
         freevm(p->pgdir);
+
+        #ifdef MLFQ
+        //now let's delete from queue
+        int jt=-1;
+        int it=p->current_queue;
+        for(int itt=0;itt<mlfq[it].num;itt++){
+          if(mlfq[it].proc[itt]->pid==p->pid){
+            jt=itt;
+            break;
+          }
+        }
+        if(jt!=-1){
+          for(int itt=jt+1;itt<mlfq[it].num;itt++) mlfq[it].proc[itt-1]=mlfq[it].proc[itt];
+          mlfq[it].num--;
+          mlfq[it].proc[mlfq[it].num]=0;
+        }
+        else{
+          cprintf("This should not be happening\n");
+        }
+        #endif
+        
         p->pid = 0;
         p->parent = 0;
         p->name[0] = 0;
@@ -378,6 +425,7 @@ waitx(int *wtime,int *rtime)
 void
 scheduler(void)
 {
+  #ifdef DEFAULT
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
@@ -385,8 +433,6 @@ scheduler(void)
   for(;;){
     // Enable interrupts on this processor.
     sti();
-
-    #ifdef DEFAULT
       // Loop over process table looking for process to run.
       acquire(&ptable.lock);
       for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
@@ -410,11 +456,19 @@ scheduler(void)
 
       }
       release(&ptable.lock);
-    #else
-    #ifdef FCFS
+  }
+  #else
+  #ifdef FCFS
+  struct proc *p;
+  struct cpu *c = mycpu();
+  c->proc = 0;
+  struct proc *ptorun=0;
+  
+  for(;;){
+    // Enable interrupts on this processor.
+    sti();
     // cprintf("FCFS!");
       acquire(&ptable.lock);
-      struct proc *ptorun=0;
       for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
         if(p->state != RUNNABLE)
           continue;
@@ -443,9 +497,198 @@ scheduler(void)
         c->proc = 0;
       }
       release(&ptable.lock);
-    #endif
-    #endif
+      ptorun=0; //????
   }
+  #else
+  #ifdef PRIORITY
+  struct cpu *c = mycpu();
+  c->proc = 0;
+  struct proc *p;
+  struct proc *ptorun=0;
+  struct proc *p1;
+
+  for(;;){
+    // Enable interrupts on this processor.
+    sti();
+      acquire(&ptable.lock);
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->state != RUNNABLE)
+        continue;
+      
+      ptorun = p;
+      // choose one with highest priority
+
+      for(p1 = ptable.proc; p1 < &ptable.proc[NPROC]; p1++){
+        if(p1->state != RUNNABLE)
+          continue;
+        else if (ptorun->priority>p1->priority )
+          ptorun = p1;
+      }
+      
+      if(ptorun!=0){
+        c->proc = ptorun;
+        switchuvm(ptorun);
+        ptorun->state = RUNNING;
+        ptorun->num_run++;
+
+        swtch(&(c->scheduler), ptorun->context);
+        switchkvm();
+
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->proc = 0;
+        ptorun=0; //????
+      }
+   
+    }
+      release(&ptable.lock);
+  }
+  #else
+  #ifdef MLFQ
+    for(int i=0;i<5;i++){
+      mlfq[i].rtime=1;
+      for(int j=0;j<i;j++) mlfq[i].rtime*=2;
+      mlfq[i].wtime=5;
+    }
+
+    struct cpu *c = mycpu();
+    c->proc = 0;
+    struct proc *ptorun=0;
+    int i,j;
+
+    for(;;){
+      // Enable interrupts on this processor.
+      sti();
+      //waittime
+      acquire(&ptable.lock);
+
+      //check if any procs have to be moved up 
+      for(int it=0;it<5;it++){
+        for(int jt=0;jt<NPROC;jt++){
+          if(mlfq[it].proc[jt]!=0){
+            
+            //brute force deleting
+            // if(mlfq[it].proc[jt]->pid==0){
+            //   cprintf("here %d\n", mlfq[it].proc[jt]->state);
+            //   //now time to delete from the queue
+            //   for(int itt=jt+1;itt<mlfq[it].num;itt++) mlfq[it].proc[itt-1]=mlfq[it].proc[itt];
+            //   mlfq[it].num--;
+            //   mlfq[it].proc[mlfq[it].num]=0;
+            // }
+
+            if(mlfq[it].proc[jt]->state != RUNNABLE)  
+              continue;
+            // cprintf("%d intime %d ticks %d\n",mlfq[it].proc[jt]->pid,mlfq[it].proc[jt]->intime,ticks);
+            else if(ticks-mlfq[it].proc[jt]->intime>mlfq[it].wtime && it>0){
+              //now putting process in the queue newq 
+              int newq=it-1;
+              mlfq[newq].proc[mlfq[newq].num]=mlfq[it].proc[jt];
+              mlfq[newq].proc[mlfq[newq].num]->intime=ticks;
+              mlfq[newq].proc[mlfq[newq].num]->ticksnow[newq]=0;
+              mlfq[newq].proc[mlfq[newq].num++]->current_queue=newq;
+
+              //now time to delete from the queue
+              for(int itt=jt+1;itt<mlfq[it].num;itt++) mlfq[it].proc[itt-1]=mlfq[it].proc[itt];
+              mlfq[it].num--;
+              mlfq[it].proc[mlfq[it].num]=0;
+
+              ptorun=mlfq[newq].proc[mlfq[newq].num-1];
+              cprintf("%d shifted up to %d\n",ptorun->pid,ptorun->current_queue);
+            }
+          }
+        }
+      }
+
+      //check which proc to run
+      ptorun=0;
+      for(i=0;i<5;i++){
+        for(j=0;j<mlfq[i].num;j++){ 
+          if(mlfq[i].proc[j]!=0){
+            //Now checking process in queue i
+            if(mlfq[i].proc[j]->state != RUNNABLE)  //change to priority round robin
+              continue;
+            else {
+              ptorun=mlfq[i].proc[j];  //so now ptorun pointing to some address in ptable
+              break;
+            }
+          }
+        }
+        if(ptorun!=0) break;
+      }
+
+      // Switch to chosen process.  It is the process's job
+      // to release ptable.lock and then reacquire it
+      // before jumping back to us.
+      if(ptorun!=0){ //We just chose process in queue i at position j
+
+        for(int lol=0;lol<5;lol++){
+          for(int it=0;it<mlfq[lol].num;it++) {
+            if(mlfq[lol].proc[it]->state== RUNNING)
+            cprintf("%d RUNNING  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
+            else if(mlfq[lol].proc[it]->state== RUNNABLE)
+            cprintf("%d RUNNABLE  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
+            else if(mlfq[lol].proc[it]->state== SLEEPING)
+            cprintf("%d SLEEPING  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
+            else if(mlfq[lol].proc[it]->state== UNUSED)
+            cprintf("%d UNUSED  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
+            else
+            cprintf("%d OTHER  ",mlfq[lol].proc[it]->pid,mlfq[lol].proc[it]->state);
+            if(it==mlfq[lol].num-1) cprintf("...%d\n",lol);
+            }
+        }
+
+        c->proc = ptorun;
+        switchuvm(ptorun);
+        ptorun->state = RUNNING;
+        ptorun->num_run++;
+    
+        swtch(&(c->scheduler), ptorun->context);
+        switchkvm();
+
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->proc = 0;
+        
+        // cprintf("%d in %d runtime %d ticks %d\n",ptorun->pid,ptorun->current_queue,ptorun->rtime,ptorun->ticksnow[ptorun->current_queue]);
+        cprintf("selected %d from %d at %d\n",ptorun->pid,i,j);
+        
+        //first do all the checking,putting into new/same queue if reqd
+        if(ptorun!=0 ){//has not been killed
+        if(ptorun->killed==0){       
+          int newq=i; 
+          if(i<4 && 
+          mlfq[i].rtime<=ptorun->ticksnow[ptorun->current_queue]) {  //did it exceed the time slice?
+            newq=i+1;
+          }
+
+          //now putting process in the queue newq 
+          mlfq[newq].proc[mlfq[newq].num]=ptorun;
+          if(newq==i+1) {
+            mlfq[newq].proc[mlfq[newq].num]->ticksnow[newq]=0;
+            cprintf("%d shifted down to %d\n",ptorun->pid,newq);
+          }
+          mlfq[newq].proc[mlfq[newq].num]->intime=ticks;    //since time since it was waiting should reset
+          mlfq[newq].proc[mlfq[newq].num++]->current_queue=newq;
+        }
+        }
+
+        //now time to delete from the queue
+        for(int it=j+1;it<mlfq[i].num;it++) mlfq[i].proc[it-1]=mlfq[i].proc[it];
+        mlfq[i].num--;
+        mlfq[i].proc[mlfq[i].num]=0;
+        
+
+        // for(int it=0;it<mlfq[i].num;it++) cprintf("(%d..%d)  ",mlfq[i].proc[it]->pid,it);
+        // cprintf("\n");
+
+      }
+      release(&ptable.lock);
+    }
+    
+  #endif
+  #endif
+  #endif
+  #endif
 }
 
 // Enter scheduler.  Must hold only ptable.lock
@@ -641,4 +884,42 @@ getpinfo(struct proc_stat *p_proc, int pid){  //0 if successful, 1 if otherwise
     }
   }
   return -1;//means no such pid
+}
+
+int 
+setpriority(int pri, int pid)  //returns 0 if success;
+{
+  if(pri<0 || pri>100){
+    cprintf("Invalid priority\n");
+    return -1;
+  }
+
+  struct proc *p;
+  acquire(&ptable.lock);
+  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  {
+    if(p->pid==pid){
+      int oldpri=p->priority;
+      p->priority=pri;
+      release(&ptable.lock);
+      return oldpri;
+    }
+  }
+
+  release(&ptable.lock);
+  cprintf("No such process\n");
+  return -1;// means process not found
+}
+
+void 
+ps(void){
+
+  struct proc *p=0;
+  
+      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+        if(p->state != RUNNABLE)
+          continue;
+        cprintf("pid=%d pri=%d\n",p->pid,p->priority);
+      }
+  return;
 }

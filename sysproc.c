@@ -118,3 +118,24 @@ sys_getpinfo(void)
 
   return getpinfo(p,pid);
 }
+
+int 
+sys_setpriority(void)
+{
+  int pri;
+  int pid;
+  
+  if(argint(0, &pri) < 0)
+    return -1;
+
+  if(argint(1, &pid) < 0)
+    return -1;
+
+  return setpriority(pri,pid);
+}
+
+void
+sys_ps(void)
+{
+  return ps();
+}
